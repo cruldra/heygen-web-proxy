@@ -1,3 +1,5 @@
+import atexit
+import signal
 import time
 
 from fastapi import FastAPI
@@ -40,6 +42,11 @@ class ChromeManager:
             self._chrome_process = subprocess.Popen(cmd)
         return self._chrome_process
 
+    def close_chrome(self):
+        if self._chrome_process is not None:
+            self._chrome_process.terminate()
+            self._chrome_process.wait()
+            self._chrome_process = None
 
 class CreateDigitalVideoRequest(BaseModel):
     """
@@ -75,9 +82,19 @@ async def create_digital_video(request: CreateDigitalVideoRequest):
         time.sleep(3)
         await page.close()
     return "ok"
+def cleanup():
+    chrome_manager = ChromeManager.get_instance()
+    chrome_manager.close_chrome()
 
+def signal_handler(signum, frame):
+    cleanup()
+    exit(0)
 
 if __name__ == '__main__':
+    # 注册清理函数
+    atexit.register(cleanup)
+    # 注册信号处理
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
     uvicorn.run(app, host="0.0.0.0")
-    # open_chrome()
-    # print(1)
