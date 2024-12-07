@@ -72,7 +72,9 @@ class CreateDigitalVideoRequest(BaseModel):
 # 在应用启动时启动Chrome
 chrome_manager = ChromeManager.get_instance()
 chrome_manager.start_chrome()
-async def get_parent_element(element_handle:ElementHandle):
+
+
+async def get_parent_element(element_handle: ElementHandle):
     """
     获取元素的父元素
     Args:
@@ -91,20 +93,52 @@ async def create_digital_video(request: CreateDigitalVideoRequest):
         page = await context.new_page()
         await page.goto('https://app.heygen.com/create-v3/draft?vt=p')
         # 选择头像
-        avatar_element = await page.wait_for_selector(f'div[draggable="false"]>div:nth-child(3)>div>label[title="{request.avatar_name}"]')
+        avatar_element = await page.wait_for_selector(
+            f'div[draggable="false"]>div:nth-child(3)>div>label[title="{request.avatar_name}"]')
         parent1 = await get_parent_element(avatar_element)
         parent2 = await get_parent_element(parent1)
         avatar_container = await get_parent_element(parent2)
         await avatar_container.click()
 
         # 选择外观
-        look_element = await page.wait_for_selector(f'div[data-active="false"][draggable="true"] div.css-1xfwczf[title="{request.look_name}"]')
+        look_element = await page.wait_for_selector(
+            f'div[data-active="false"][draggable="true"] div.css-1xfwczf[title="{request.look_name}"]')
         parent1 = await get_parent_element(look_element)
         parent2 = await get_parent_element(parent1)
         look_container = await get_parent_element(parent2)
         await look_container.click()
 
-        time.sleep(30)
+        # 选择文本轨道
+        text_track = await page.wait_for_selector('div[data-draggable-handle-id].css-esngap')
+        await text_track.click()
+
+        # 输入文案
+        text_input = await page.wait_for_selector('span[data-slate-string="true"]')
+        await text_input.fill(request.script_content)
+
+        # 生成一个随机视频id
+        time.sleep(1)
+        video_id = str(int(time.time()))
+        # 点击播放文案, 这个会导致等待
+        play_btn = await  page.wait_for_selector("""button.unloaded""")
+        await play_btn.click()
+        # 点击提交,弹出确认框
+        submit_button = await page.wait_for_selector('.css-88rj5c')
+        await submit_button.click()
+
+        # 输入随机视频名
+        video_name_input = await page.wait_for_selector('input#input')
+        await video_name_input.fill(video_id)
+
+        # 去除水印,默认是开启的
+        watermark_button = await page.wait_for_selector('button.css-19559xf[role="switch"]')
+        await watermark_button.click()
+
+        # 点击提交
+        final_submit = await page.wait_for_selector('button.css-17onw6j')
+        await final_submit.click()
+
+        time.sleep(300000)
         await page.close()
     return "ok"
 
