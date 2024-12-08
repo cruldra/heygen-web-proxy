@@ -3,7 +3,7 @@ import signal
 import time
 
 from fastapi import FastAPI
-from playwright.sync_api import sync_playwright, ElementHandle
+from playwright.sync_api import sync_playwright, ElementHandle, Page
 from pydantic import BaseModel
 from typing import Optional
 import subprocess
@@ -172,39 +172,87 @@ def clear_drafts():
         time.sleep(10)
         draft_videos = page.query_selector_all('div:text-is("Draft")')
         for draft_video in draft_videos:
-            draft_video1 = get_parent_element(draft_video)
-            draft_video2 = get_parent_element(draft_video1)
-            draft_video3 = get_parent_element(draft_video2)
-            draft_video4 = get_parent_element(draft_video3)
-            draft_video5 = get_parent_element(draft_video4)
-            draft_video6 = get_parent_element(draft_video5)
-            draft_video7 = get_parent_element(draft_video6)
+            try:
+                draft_video1 = get_parent_element(draft_video)
+                draft_video2 = get_parent_element(draft_video1)
+                draft_video3 = get_parent_element(draft_video2)
+                draft_video4 = get_parent_element(draft_video3)
+                draft_video5 = get_parent_element(draft_video4)
+                draft_video6 = get_parent_element(draft_video5)
+                draft_video7 = get_parent_element(draft_video6)
 
-            # 获取元素的中心位置
-            box = draft_video7.bounding_box()
-            center_x = box['x'] + box['width'] / 2
-            center_y = box['y'] + box['height'] / 2
+                # 获取元素的中心位置
+                box = draft_video7.bounding_box()
+                center_x = box['x'] + box['width'] / 2
+                center_y = box['y'] + box['height'] / 2
 
-            # 移动鼠标到元素中心
-            page.mouse.move(center_x, center_y)
+                # 移动鼠标到元素中心
+                page.mouse.move(center_x, center_y)
 
-            # 等待元素变成css-ioxlw8样式
-            draft_video7 = page.wait_for_selector('.css-ioxlw8')
-            float_menu = draft_video7.query_selector('.css-1qsiyka')
-            # 获取浮动菜单的中心位置
-            float_menu_box = float_menu.bounding_box()
-            float_menu_center_x = float_menu_box['x'] + float_menu_box['width'] / 2
-            float_menu_center_y = float_menu_box['y'] + float_menu_box['height'] / 2
+                # 等待元素变成css-ioxlw8样式
+                draft_video7 = page.wait_for_selector('.css-ioxlw8')
+                float_menu = draft_video7.query_selector('.css-1qsiyka')
+                # 获取浮动菜单的中心位置
+                float_menu_box = float_menu.bounding_box()
+                float_menu_center_x = float_menu_box['x'] + float_menu_box['width'] / 2
+                float_menu_center_y = float_menu_box['y'] + float_menu_box['height'] / 2
 
-            # 移动鼠标到浮动菜单中心
-            page.mouse.move(float_menu_center_x, float_menu_center_y)
+                # 移动鼠标到浮动菜单中心
+                page.mouse.move(float_menu_center_x, float_menu_center_y)
 
-            # 等待并点击Trash选项
-            trash_option = page.wait_for_selector('li.rc-menu-item:has-text("Trash")')
-            trash_option.click()
-            time.sleep(1)
+                # 等待并点击Trash选项
+                trash_option = page.wait_for_selector('li.rc-menu-item:has-text("Trash")')
+                trash_option.click()
+                time.sleep(1)
+            except:
+                pass
         time.sleep(100)
         page.close()
+
+
+def get_video_card_by_id(page:Page, video_id):
+    js_code = """
+    () => {
+        const elements = document.querySelectorAll('div.video-card span.css-gt1xo4');
+        let clickTarget = null;
+        for (const el of elements) {
+            if (el.textContent.trim() === '%s') {
+                clickTarget = el;
+                for (let i = 0; i < 8; i++) {
+                    clickTarget = clickTarget.parentElement;
+                }
+            }
+        }
+        return clickTarget;
+    }
+    """ % video_id
+
+    return page.wait_for_function(js_code).as_element()
+
+
+@app.get("/video_status/{video_id}")
+def get_video_status(video_id: str):
+    with sync_playwright() as p:
+        browser = p.chromium.connect_over_cdp("http://localhost:9222")
+        context = browser.contexts[0]
+        page = context.new_page()
+        page.goto('https://app.heygen.com/home')
+        # 等待页面加载完成
+        time.sleep(10)
+        # 查找包含视频ID的span元素
+        video_card_element = get_video_card_by_id(page, video_id)
+        # 检查是否存在时长信息元素
+        try:
+            duration_element = video_card_element.query_selector('div.css-nxiqic.content')
+            if duration_element:
+                # 如果找到时长元素，说明渲染完成
+                return {"status": "completed"}
+            else:
+                return {"status": "processing"}
+        except:
+            return {"status": "error"}
+        finally:
+            page.close()
 
 
 def cleanup():
