@@ -122,14 +122,14 @@ def process_video_creation(request: CreateDigitalVideoRequest, video_id: str):
             text_input = page.wait_for_selector('span[data-slate-string="true"]')
             text_input.fill(request.script_content)
 
-
             # 选择语言
             language_button = page.wait_for_selector('div.css-70qvj9')
             time.sleep(1)
             language_button.click()
 
             # 回到语言选择界面
-            back_to_languages = page.wait_for_selector("li[data-menu-id^='rc-menu-uuid-'][data-menu-id$='-back-to-languages']")
+            back_to_languages = page.wait_for_selector(
+                "li[data-menu-id^='rc-menu-uuid-'][data-menu-id$='-back-to-languages']")
             time.sleep(1)
             back_to_languages.click()
 
@@ -142,7 +142,6 @@ def process_video_creation(request: CreateDigitalVideoRequest, video_id: str):
             area_option = page.wait_for_selector(f"li[class~='rc-menu-item'][class~='Chinese'][class~='(Mandarin)']")
             time.sleep(1)
             area_option.click()
-
 
             # 点击播放文案
             play_btn = page.wait_for_selector("""button.css-1d5pxp4""")
@@ -203,10 +202,11 @@ def clear_drafts():
         browser = p.chromium.connect_over_cdp("http://localhost:9222")
         context = browser.contexts[0]
         page = context.new_page()
-        page.goto('https://app.heygen.com/home')
-        # 等10秒让页面加载完成
-        time.sleep(10)
-        draft_videos = page.query_selector_all('div:text-is("Draft")')
+        page.goto('https://app.heygen.com/projects')
+        # 等待视频列表出现
+        videos_container_el = get_parent_element(
+            get_parent_element(page.wait_for_selector('div.css-1uyld0b:has-text("Videos")'))).wait_for_selector("div.css-bn66oz")
+        draft_videos = videos_container_el.query_selector_all('div:text-is("Draft")')
         for draft_video in draft_videos:
             try:
                 draft_video1 = get_parent_element(draft_video)
@@ -304,10 +304,12 @@ def download_video(video_id: str):
         context = browser.contexts[0]
         page = context.new_page()
         page.goto('https://app.heygen.com/projects')
-        time.sleep(10)
-
+        # 等待视频列表出现
+        videos_container_el = get_parent_element(
+            get_parent_element(page.wait_for_selector('div.css-1uyld0b:has-text("Videos")'))).wait_for_selector(
+            "div.css-bn66oz")
         # Get video card and extract style attribute
-        video_id_ele =    page.wait_for_selector("span.css-gt1xo4:text-is('%s')" % video_id)
+        video_id_ele = videos_container_el.wait_for_selector("span.css-gt1xo4:text-is('%s')" % video_id)
 
         video_id_ele1 = get_parent_element(video_id_ele)
         video_id_ele2 = get_parent_element(video_id_ele1)
@@ -334,7 +336,7 @@ def download_video(video_id: str):
         float_menu_center_y = float_menu_box['y'] + float_menu_box['height'] / 2
 
         # 移动鼠标到浮动菜单中心
-        page.mouse.move(float_menu_center_x+10, float_menu_center_y)
+        page.mouse.move(float_menu_center_x + 10, float_menu_center_y)
 
         # 等待并点击Download选项
         download__option = page.wait_for_selector('li.rc-menu-item:has-text("Download")')
