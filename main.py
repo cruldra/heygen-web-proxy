@@ -122,6 +122,28 @@ def process_video_creation(request: CreateDigitalVideoRequest, video_id: str):
             text_input = page.wait_for_selector('span[data-slate-string="true"]')
             text_input.fill(request.script_content)
 
+
+            # 选择语言
+            language_button = page.wait_for_selector('div.css-70qvj9')
+            time.sleep(1)
+            language_button.click()
+
+            # 回到语言选择界面
+            back_to_languages = page.wait_for_selector("li[data-menu-id^='rc-menu-uuid-'][data-menu-id$='-back-to-languages']")
+            time.sleep(1)
+            back_to_languages.click()
+
+            # 选择中文
+            chinese_option = page.wait_for_selector("li[data-menu-id^='rc-menu-uuid-'][data-menu-id$='-Chinese']")
+            time.sleep(1)
+            chinese_option.click()
+
+            # 选择具体地区
+            area_option = page.wait_for_selector(f"li[class~='rc-menu-item'][class~='Chinese'][class~='(Mandarin)']")
+            time.sleep(1)
+            area_option.click()
+
+
             # 点击播放文案
             play_btn = page.wait_for_selector("""button.css-1d5pxp4""")
             play_btn.click()
@@ -147,12 +169,12 @@ def process_video_creation(request: CreateDigitalVideoRequest, video_id: str):
             final_submit.click()
 
             # 处理Submit Anyway按钮
-            try:
-                submit_anyway = page.wait_for_selector('span:text-is("Submit Anyway")', timeout=5 * 60 * 1000)
-                if submit_anyway:
-                    submit_anyway.click()
-            except:
-                pass
+            # try:
+            #     submit_anyway = page.wait_for_selector('span:text-is("Submit Anyway")', timeout=5 * 60 * 1000)
+            #     if submit_anyway:
+            #         submit_anyway.click()
+            # except:
+            #     pass
             # 等待跳转到项目页面
             page.wait_for_url("https://app.heygen.com/projects", timeout=3 * 60 * 1000)
             time.sleep(5)
