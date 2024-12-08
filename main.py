@@ -10,12 +10,18 @@ import subprocess
 import os
 import uvicorn
 
+import threading
+from concurrent.futures import ThreadPoolExecutor
+
 # 创建 FastAPI 实例
 app = FastAPI(
     title="My API",
     description="This is a sample API",
     version="1.0.0"
 )
+
+# 创建一个线程池
+executor = ThreadPoolExecutor(max_workers=5)
 
 
 class ChromeManager:
@@ -84,77 +90,85 @@ def get_parent_element(element_handle: ElementHandle):
     return element_handle.evaluate_handle("element => element.parentElement")
 
 
+def process_video_creation(request: CreateDigitalVideoRequest, video_id: str):
+    with sync_playwright() as p:
+        try:
+            browser = p.chromium.connect_over_cdp("http://localhost:9222")
+            context = browser.contexts[0]
+            page = context.new_page()
+            page.goto('https://app.heygen.com/create-v3/draft?vt=p')
+
+            # 选择头像
+            avatar_element = page.wait_for_selector(
+                f'div[draggable="false"]>div:nth-child(3)>div>label[title="{request.avatar_name}"]')
+            parent1 = get_parent_element(avatar_element)
+            parent2 = get_parent_element(parent1)
+            avatar_container = get_parent_element(parent2)
+            avatar_container.click()
+
+            # 选择外观
+            look_element = page.wait_for_selector(
+                f'div[data-active="false"][draggable="true"] div.css-1xfwczf[title="{request.look_name}"]')
+            parent1 = get_parent_element(look_element)
+            parent2 = get_parent_element(parent1)
+            look_container = get_parent_element(parent2)
+            look_container.click()
+
+            # 选择文本轨道
+            text_track = page.wait_for_selector('div[data-draggable-handle-id].css-esngap')
+            text_track.click()
+
+            # 输入文案
+            text_input = page.wait_for_selector('span[data-slate-string="true"]')
+            text_input.fill(request.script_content)
+
+            # 点击播放文案
+            play_btn = page.wait_for_selector("""button.css-1d5pxp4""")
+            play_btn.click()
+            # 等待加载状态
+            page.wait_for_selector('button.css-1c3nw3f')
+            # 等待播放完成
+            page.wait_for_selector('button.css-1d5pxp4', timeout=10 * 60 * 1000)
+
+            # 点击提交,弹出确认框
+            submit_button = page.wait_for_selector('.css-88rj5c')
+            submit_button.click()
+
+            # 输入视频名
+            video_name_input = page.wait_for_selector('input#input')
+            video_name_input.fill(video_id)
+
+            # 去除水印
+            watermark_button = page.wait_for_selector('button.css-19559xf[role="switch"]')
+            watermark_button.click()
+
+            # 点击提交
+            final_submit = page.wait_for_selector('button.css-17onw6j')
+            final_submit.click()
+
+            # 处理Submit Anyway按钮
+            try:
+                submit_anyway = page.wait_for_selector('span:text-is("Submit Anyway")', timeout=5 * 60 * 1000)
+                if submit_anyway:
+                    submit_anyway.click()
+            except:
+                pass
+            # 等待跳转到项目页面
+            page.wait_for_url("https://app.heygen.com/projects", timeout=3 * 60 * 1000)
+            time.sleep(5)
+        finally:
+            page.close()
+
+
 @app.post("/digital-video/")
 def create_digital_video(request: CreateDigitalVideoRequest):
     """
-    新建一个数字人视频,视频渲染会持续一段时间,所以返回视频id,后续需要通过视频id获取视频
-    :param request:
-    :return:
+    异步创建数字人视频，立即返回视频ID
     """
-    with sync_playwright() as p:
-        browser = p.chromium.connect_over_cdp("http://localhost:9222")
-        context = browser.contexts[0]
-        page = context.new_page()
-        page.goto('https://app.heygen.com/create-v3/draft?vt=p')
-        # 选择头像
-        avatar_element = page.wait_for_selector(
-            f'div[draggable="false"]>div:nth-child(3)>div>label[title="{request.avatar_name}"]')
-        parent1 = get_parent_element(avatar_element)
-        parent2 = get_parent_element(parent1)
-        avatar_container = get_parent_element(parent2)
-        avatar_container.click()
-
-        # 选择外观
-        look_element = page.wait_for_selector(
-            f'div[data-active="false"][draggable="true"] div.css-1xfwczf[title="{request.look_name}"]')
-        parent1 = get_parent_element(look_element)
-        parent2 = get_parent_element(parent1)
-        look_container = get_parent_element(parent2)
-        look_container.click()
-
-        # 选择文本轨道
-        text_track = page.wait_for_selector('div[data-draggable-handle-id].css-esngap')
-        text_track.click()
-
-        # 输入文案
-        text_input = page.wait_for_selector('span[data-slate-string="true"]')
-        text_input.fill(request.script_content)
-
-        # 点击播放文案, 这个会导致等待
-        # time.sleep(1)
-        play_btn = page.wait_for_selector("""button.css-1d5pxp4""")
-        play_btn.click()
-        # 等待加载状态
-        page.wait_for_selector('button.css-1c3nw3f')
-        # 等待播放完成
-        page.wait_for_selector('button.css-1d5pxp4', timeout=10 * 60 * 1000)
-
-        # 点击提交,弹出确认框
-        submit_button = page.wait_for_selector('.css-88rj5c')
-        submit_button.click()
-
-        # 输入随机视频名
-        video_name_input = page.wait_for_selector('input#input')
-        video_id = str(int(time.time()))
-        video_name_input.fill(video_id)
-
-        # 去除水印,默认是开启的
-        watermark_button = page.wait_for_selector('button.css-19559xf[role="switch"]')
-        watermark_button.click()
-
-        # 点击提交
-        final_submit = page.wait_for_selector('button.css-17onw6j')
-        final_submit.click()
-
-        # 处理可能出现的Submit Anyway按钮
-        try:
-            submit_anyway = page.wait_for_selector('span:text-is("Submit Anyway")', timeout=5 * 60 * 1000)
-            if submit_anyway:
-                submit_anyway.click()
-        except:
-            pass
-        page.close()
-        return video_id
+    video_id = str(int(time.time()))
+    # 提交任务到线程池
+    executor.submit(process_video_creation, request, video_id)
+    return {"video_id": video_id}
 
 
 def get_element_outer_html(element: ElementHandle):
@@ -206,11 +220,10 @@ def clear_drafts():
                 time.sleep(1)
             except:
                 pass
-        time.sleep(100)
         page.close()
 
 
-def get_video_card_by_id(page:Page, video_id):
+def get_video_card_by_id(page: Page, video_id):
     js_code = """
     () => {
         const elements = document.querySelectorAll('div.video-card span.css-gt1xo4');
@@ -228,6 +241,13 @@ def get_video_card_by_id(page:Page, video_id):
     """ % video_id
 
     return page.wait_for_function(js_code).as_element()
+
+
+def extract_id(url: str) -> str:
+    import re
+    pattern = r'/([a-f0-9]{32})\.jpeg'
+    match = re.search(pattern, url)
+    return match.group(1) if match else None
 
 
 @app.get("/video_status/{video_id}")
@@ -253,6 +273,62 @@ def get_video_status(video_id: str):
             return {"status": "error"}
         finally:
             page.close()
+
+
+@app.get("/video_download/{video_id}")
+def download_video(video_id: str):
+    with sync_playwright() as p:
+        browser = p.chromium.connect_over_cdp("http://localhost:9222")
+        context = browser.contexts[0]
+        page = context.new_page()
+        page.goto('https://app.heygen.com/projects')
+        time.sleep(10)
+
+        # Get video card and extract style attribute
+        video_id_ele =    page.wait_for_selector("span.css-gt1xo4:text-is('%s')" % video_id)
+
+        video_id_ele1 = get_parent_element(video_id_ele)
+        video_id_ele2 = get_parent_element(video_id_ele1)
+        video_id_ele3 = get_parent_element(video_id_ele2)
+        video_id_ele4 = get_parent_element(video_id_ele3)
+        video_id_ele5 = get_parent_element(video_id_ele4)
+        video_id_ele6 = get_parent_element(video_id_ele5)
+        video_id_ele7 = get_parent_element(video_id_ele6)
+
+        # 获取元素的中心位置
+        box = video_id_ele7.bounding_box()
+        center_x = box['x'] + box['width'] / 2
+        center_y = box['y'] + box['height'] / 2
+
+        # 移动鼠标到元素中心
+        page.mouse.move(center_x, center_y)
+
+        # 等待元素变成css-ioxlw8样式
+        video_id_ele7 = page.wait_for_selector('.css-ioxlw8')
+        float_menu = video_id_ele7.query_selector('.css-1qsiyka')
+        # 获取浮动菜单的中心位置
+        float_menu_box = float_menu.bounding_box()
+        float_menu_center_x = float_menu_box['x'] + float_menu_box['width'] / 2
+        float_menu_center_y = float_menu_box['y'] + float_menu_box['height'] / 2
+
+        # 移动鼠标到浮动菜单中心
+        page.mouse.move(float_menu_center_x+10, float_menu_center_y)
+
+        # 等待并点击Download选项
+        download__option = page.wait_for_selector('li.rc-menu-item:has-text("Download")')
+
+        # Setup download handler
+        with page.expect_download(timeout=120000) as download_info:
+            # Click download button
+            download__option.click()
+        # 准备下载目录
+        os.makedirs('./.data/videos', exist_ok=True)
+        # Save the downloaded file
+        download = download_info.value
+        download.save_as(f"./.data/videos/{video_id}.mp4")
+
+        page.close()
+        return {"status": "success", "file": f"{video_id}.mp4"}
 
 
 def cleanup():
