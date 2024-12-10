@@ -3,15 +3,14 @@ import os
 import signal
 import subprocess
 import time
-from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from playwright.sync_api import sync_playwright, ElementHandle, Page
 from pydantic import BaseModel
-from fastapi.responses import FileResponse, StreamingResponse
 
 # 创建 FastAPI 实例
 app = FastAPI(
@@ -34,8 +33,6 @@ app.add_middleware(
     allow_headers=["*"],  # 允许所有请求头
     max_age=3600,  # 预检请求结果缓存时间
 )
-# 创建一个线程池
-executor = ThreadPoolExecutor(max_workers=5)
 
 
 class ChromeManager:
@@ -104,7 +101,34 @@ def get_parent_element(element_handle: ElementHandle):
     return element_handle.evaluate_handle("element => element.parentElement")
 
 
-def process_video_creation(request: CreateDigitalVideoRequest, video_id: str):
+@app.get("/avatars")
+def get_avatars():
+    """获取可用的形象和外观列表"""
+    return [
+        {
+            "name": "王博轩",
+            "looks": [
+                "室内1",
+                "室外1"
+            ]
+        },
+        {
+            "name": "柴华",
+            "looks": [
+                "室内1",
+                "室外1"
+            ]
+        }
+    ]
+
+
+@app.post("/digital-video/")
+def create_digital_video(request: CreateDigitalVideoRequest):
+    """
+    异步创建数字人视频，立即返回视频ID
+    """
+    video_id = str(int(time.time()))
+    # 提交任务到线程池
     with sync_playwright() as p:
         try:
             browser = p.chromium.connect_over_cdp("http://localhost:9222")
@@ -193,37 +217,6 @@ def process_video_creation(request: CreateDigitalVideoRequest, video_id: str):
             time.sleep(5)
         finally:
             page.close()
-
-
-@app.get("/avatars")
-def get_avatars():
-    """获取可用的形象和外观列表"""
-    return [
-        {
-            "name": "王博轩",
-            "looks": [
-                "室内1",
-                "室外1"
-            ]
-        },
-        {
-            "name": "柴华",
-            "looks": [
-                "室内1",
-                "室外1"
-            ]
-        }
-    ]
-
-
-@app.post("/digital-video/")
-def create_digital_video(request: CreateDigitalVideoRequest):
-    """
-    异步创建数字人视频，立即返回视频ID
-    """
-    video_id = str(int(time.time()))
-    # 提交任务到线程池
-    executor.submit(process_video_creation, request, video_id)
     return {"video_id": video_id}
 
 
