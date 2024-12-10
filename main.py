@@ -181,6 +181,27 @@ def process_video_creation(request: CreateDigitalVideoRequest, video_id: str):
             page.close()
 
 
+@app.get("/avatars")
+def get_avatars():
+    """获取可用的形象和外观列表"""
+    return [
+        {
+            "name": "王博轩",
+            "looks": [
+                "室内1",
+                "室外1"
+            ]
+        },
+        {
+            "name": "柴华",
+            "looks": [
+                "室内1",
+                "室外1"
+            ]
+        }
+    ]
+
+
 @app.post("/digital-video/")
 def create_digital_video(request: CreateDigitalVideoRequest):
     """
@@ -205,7 +226,8 @@ def clear_drafts():
         page.goto('https://app.heygen.com/projects')
         # 等待视频列表出现
         videos_container_el = get_parent_element(
-            get_parent_element(page.wait_for_selector('div.css-1uyld0b:has-text("Videos")'))).wait_for_selector("div.css-bn66oz")
+            get_parent_element(page.wait_for_selector('div.css-1uyld0b:has-text("Videos")'))).wait_for_selector(
+            "div.css-bn66oz")
         draft_videos = videos_container_el.query_selector_all('div:text-is("Draft")')
         for draft_video in draft_videos:
             try:
@@ -372,4 +394,4 @@ if __name__ == '__main__':
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
-    uvicorn.run(app, host="0.0.0.0",port=9811)
+    uvicorn.run(app, host="0.0.0.0", port=9811)
