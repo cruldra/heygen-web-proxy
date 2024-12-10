@@ -353,6 +353,10 @@ def download_video(video_id: str):
         video_id_ele5 = get_parent_element(video_id_ele4)
         video_id_ele6 = get_parent_element(video_id_ele5)
         video_id_ele7 = get_parent_element(video_id_ele6)
+        # 将元素滚动到视图中
+        video_id_ele7.scroll_into_view_if_needed()
+        time.sleep(1)  # 等待滚动完成
+
 
         # 获取元素的中心位置
         box = video_id_ele7.bounding_box()
