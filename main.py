@@ -1,17 +1,15 @@
 import atexit
+import os
 import signal
+import subprocess
 import time
+from concurrent.futures import ThreadPoolExecutor
 
+import uvicorn
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from playwright.sync_api import sync_playwright, ElementHandle, Page
 from pydantic import BaseModel
-from typing import Optional
-import subprocess
-import os
-import uvicorn
-
-import threading
-from concurrent.futures import ThreadPoolExecutor
 
 # 创建 FastAPI 实例
 app = FastAPI(
@@ -19,7 +17,21 @@ app = FastAPI(
     description="This is a sample API",
     version="1.0.0"
 )
+# 配置允许域名列表
+origins = [
+    "http://localhost:1420",
+    "https://tauri.localhost"
+]
 
+# 添加中间件
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,      # 允许访问的源
+    allow_credentials=True,     # 允许携带cookie
+    allow_methods=["*"],        # 允许所有方法
+    allow_headers=["*"],        # 允许所有请求头
+    max_age=3600,              # 预检请求结果缓存时间
+)
 # 创建一个线程池
 executor = ThreadPoolExecutor(max_workers=5)
 
