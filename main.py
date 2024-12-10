@@ -334,6 +334,14 @@ def get_video_status(video_id: str):
 
 @app.get("/video_download/{video_id}")
 def download_video(video_id: str):
+    video_file_path = f"./.data/videos/{video_id}.mp4"
+    if os.path.exists(video_file_path):
+        return FileResponse(
+            video_file_path,
+            filename=f"{video_id}.mp4",  # 下载时的文件名
+            media_type="application/octet-stream",
+        )
+
     with sync_playwright() as p:
         browser = p.chromium.connect_over_cdp("http://localhost:9222")
         context = browser.contexts[0]
@@ -356,7 +364,6 @@ def download_video(video_id: str):
         # 将元素滚动到视图中
         video_id_ele7.scroll_into_view_if_needed()
         time.sleep(1)  # 等待滚动完成
-
 
         # 获取元素的中心位置
         box = video_id_ele7.bounding_box()
@@ -388,11 +395,11 @@ def download_video(video_id: str):
         os.makedirs('./.data/videos', exist_ok=True)
         # Save the downloaded file
         download = download_info.value
-        download.save_as(f"./.data/videos/{video_id}.mp4")
+        download.save_as(video_file_path)
 
         page.close()
         return FileResponse(
-            f"./.data/videos/{video_id}.mp4",
+            video_file_path,
             filename=f"{video_id}.mp4",  # 下载时的文件名
             media_type="application/octet-stream",
         )
