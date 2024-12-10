@@ -81,11 +81,11 @@ class CreateDigitalVideoRequest(BaseModel):
         size (str): 大小
     """
     script_content: str
-    script_locale: Optional[str]
+    script_locale: Optional[str] = None
     avatar_name: str
     look_name: str
-    audio_id: Optional[str]
-    size: Optional[str]
+    audio_id: Optional[str] = None
+    size: Optional[str] = None
 
 
 # 在应用启动时启动Chrome
