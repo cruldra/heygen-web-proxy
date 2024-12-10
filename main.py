@@ -4,6 +4,7 @@ import signal
 import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
+from typing import Optional
 
 import uvicorn
 from fastapi import FastAPI
@@ -80,11 +81,11 @@ class CreateDigitalVideoRequest(BaseModel):
         size (str): 大小
     """
     script_content: str
-    script_locale: str
+    script_locale: Optional[str]
     avatar_name: str
     look_name: str
-    audio_id: str
-    size: str
+    audio_id: Optional[str]
+    size: Optional[str]
 
 
 # 在应用启动时启动Chrome
