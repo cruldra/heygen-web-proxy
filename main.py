@@ -10,6 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from playwright.sync_api import sync_playwright, ElementHandle, Page
 from pydantic import BaseModel
+from fastapi.responses import FileResponse, StreamingResponse
 
 # 创建 FastAPI 实例
 app = FastAPI(
@@ -26,11 +27,11 @@ origins = [
 # 添加中间件
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,      # 允许访问的源
-    allow_credentials=True,     # 允许携带cookie
-    allow_methods=["*"],        # 允许所有方法
-    allow_headers=["*"],        # 允许所有请求头
-    max_age=3600,              # 预检请求结果缓存时间
+    allow_origins=origins,  # 允许访问的源
+    allow_credentials=True,  # 允许携带cookie
+    allow_methods=["*"],  # 允许所有方法
+    allow_headers=["*"],  # 允许所有请求头
+    max_age=3600,  # 预检请求结果缓存时间
 )
 # 创建一个线程池
 executor = ThreadPoolExecutor(max_workers=5)
@@ -386,7 +387,11 @@ def download_video(video_id: str):
         download.save_as(f"./.data/videos/{video_id}.mp4")
 
         page.close()
-        return {"status": "success", "file": f"{video_id}.mp4"}
+        return FileResponse(
+            f"./.data/videos/{video_id}.mp4",
+            filename=f"{video_id}.mp4",  # 下载时的文件名
+            media_type="application/octet-stream",
+        )
 
 
 def cleanup():
